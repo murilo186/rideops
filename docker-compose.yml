@@ -18,5 +18,23 @@ services:
       timeout: 5s
       retries: 10
 
+  etl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-rideops}
+      POSTGRES_USER: ${POSTGRES_USER:-rideops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tools"]
+    command: ["tail", "-f", "/dev/null"]
+
 volumes:
   postgres_data:

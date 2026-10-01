@@ -11,4 +11,6 @@ O banco roda em Docker. Não é necessário instalar PostgreSQL ou bibliotecas P
 3. Inicie o banco com `docker compose up -d`.
 4. Verifique o status com `docker compose ps`.
 
-Na primeira execução, o Docker baixa a imagem oficial `postgres:16-alpine`; depois ela fica em cache local.
+O serviço `etl` usa Python em seu próprio contêiner. Ele espera o banco estar saudável e só é iniciado quando for chamado explicitamente, por exemplo: `docker compose run --rm etl python --version`.
+
+Na primeira execução, o Docker baixa as imagens oficiais `postgres:16-alpine` e `python:3.13-slim`, além dos pacotes Python definidos em `requirements.txt`. Depois tudo fica em cache local.
