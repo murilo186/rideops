@@ -1,0 +1,16 @@
+# Segredos e configuração local
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Dados e resultados locais
+data/raw/
+data/processed/
+exports/
+
+# Sistema e editor
+.DS_Store
+.vscode/
