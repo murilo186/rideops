@@ -28,3 +28,21 @@ Para gerar sempre o mesmo conjunto de dados, informe uma semente:
 ```bash
 docker compose run --rm etl python src/generate_rides.py --rows 1000 --seed 42
 ```
+
+## Carregar dados no banco
+
+Com a tabela `rides` criada, carregue o arquivo bruto com o comando abaixo. Cada execução substitui a carga anterior para que o banco represente exatamente o CSV atual.
+
+```bash
+docker compose run --rm etl python src/load_rides.py
+```
+
+## Tratar dados para análise
+
+O tratamento valida o arquivo bruto e cria colunas analíticas, como data, hora, dia da semana, indicador de horário de pico e valor por quilômetro.
+
+```bash
+docker compose run --rm etl python src/transform_rides.py
+```
+
+O resultado é salvo em `data/processed/rides.csv`. A etapa de carga será ajustada para consumir essa camada tratada no próximo passo.
