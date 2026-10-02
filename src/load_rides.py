@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pandas as pd
@@ -50,6 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("data/processed/rides.csv"),
         help="Caminho do CSV tratado.",
     )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=100_000,
+        help="Quantidade de corridas carregadas por lote.",
+    )
     return parser
 
 
@@ -64,11 +71,7 @@ def database_url() -> URL:
     )
 
 
-def read_and_validate_rides(input_path: Path) -> pd.DataFrame:
-    if not input_path.exists():
-        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
-
-    rides = pd.read_csv(input_path, parse_dates=DATE_COLUMNS)
+def validate_processed_rides(rides: pd.DataFrame) -> pd.DataFrame:
     if list(rides.columns) != PROCESSED_COLUMNS:
         raise ValueError("As colunas do CSV não correspondem à estrutura tratada esperada.")
     rides["ride_date"] = pd.to_datetime(rides["ride_date"], format="%Y-%m-%d", errors="coerce").dt.date
@@ -92,29 +95,55 @@ def read_and_validate_rides(input_path: Path) -> pd.DataFrame:
     return rides.where(pd.notna(rides), None)
 
 
-def load_rides(rides: pd.DataFrame) -> int:
+def read_and_validate_rides(input_path: Path) -> pd.DataFrame:
+    if not input_path.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+    return validate_processed_rides(pd.read_csv(input_path, parse_dates=DATE_COLUMNS))
+
+
+def read_processed_chunks(input_path: Path, chunk_size: int) -> Iterator[pd.DataFrame]:
+    if not input_path.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+    if chunk_size <= 0:
+        raise ValueError("O tamanho do lote deve ser maior que zero.")
+
+    for rides in pd.read_csv(input_path, parse_dates=DATE_COLUMNS, chunksize=chunk_size):
+        yield validate_processed_rides(rides)
+
+
+def append_rides(connection: object, rides: pd.DataFrame) -> None:
+    rides.to_sql(
+        "rides",
+        con=connection,
+        if_exists="append",
+        index=False,
+        method="multi",
+        chunksize=1_000,
+        dtype=DATABASE_TYPES,
+    )
+
+
+def load_rides_chunks(rides_chunks: Iterator[pd.DataFrame]) -> int:
     engine = create_engine(database_url())
     try:
         with engine.begin() as connection:
             connection.execute(text("TRUNCATE TABLE rides"))
-            rides.to_sql(
-                "rides",
-                con=connection,
-                if_exists="append",
-                index=False,
-                method="multi",
-                chunksize=1_000,
-                dtype=DATABASE_TYPES,
-            )
+            loaded = 0
+            for rides in rides_chunks:
+                append_rides(connection, rides)
+                loaded += len(rides)
     finally:
         engine.dispose()
-    return len(rides)
+    return loaded
+
+
+def load_rides(rides: pd.DataFrame) -> int:
+    return load_rides_chunks(iter([rides]))
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    rides = read_and_validate_rides(args.input)
-    count = load_rides(rides)
+    count = load_rides_chunks(read_processed_chunks(args.input, args.chunk_size))
     print(f"{count:,} corridas carregadas na tabela rides.")
 
 
