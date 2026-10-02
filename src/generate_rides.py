@@ -43,7 +43,7 @@ CANCELLATION_REASONS = {
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Gera dados sintéticos de corridas em São Paulo.")
-    parser.add_argument("--rows", type=int, default=10_000, help="Quantidade de corridas a gerar.")
+    parser.add_argument("--rows", type=int, default=100_000, help="Quantidade de corridas a gerar.")
     parser.add_argument(
         "--output",
         type=Path,
