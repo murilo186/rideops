@@ -29,7 +29,7 @@ def test_writes_processed_file(tmp_path: Path) -> None:
     output_path = tmp_path / "rides_processed.csv"
     generate_rides(rows=10, seed=42).to_csv(input_path, index=False)
 
-    count = process_file(input_path, output_path)
+    count = process_file(input_path, output_path, chunk_size=3)
     saved = pd.read_csv(output_path)
 
     assert count == 10

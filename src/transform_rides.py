@@ -45,6 +45,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path("data/processed/rides.csv"),
         help="Caminho do CSV tratado.",
     )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=100_000,
+        help="Quantidade de corridas tratadas por lote.",
+    )
     return parser
 
 
@@ -104,17 +110,33 @@ def transform_rides(rides: pd.DataFrame) -> pd.DataFrame:
     return treated
 
 
-def process_file(input_path: Path, output_path: Path) -> int:
-    rides = read_raw_rides(input_path)
-    treated = transform_rides(rides)
+def process_file(input_path: Path, output_path: Path, chunk_size: int = 100_000) -> int:
+    if not input_path.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+    if chunk_size <= 0:
+        raise ValueError("O tamanho do lote deve ser maior que zero.")
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    treated.to_csv(output_path, index=False, date_format="%Y-%m-%d %H:%M:%S")
-    return len(treated)
+    processed = 0
+    for index, rides in enumerate(pd.read_csv(input_path, parse_dates=DATE_COLUMNS, chunksize=chunk_size)):
+        treated = transform_rides(rides)
+        treated.to_csv(
+            output_path,
+            mode="w" if index == 0 else "a",
+            header=index == 0,
+            index=False,
+            date_format="%Y-%m-%d %H:%M:%S",
+        )
+        processed += len(treated)
+
+    if processed == 0:
+        raise ValueError("O CSV não possui corridas para tratar.")
+    return processed
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    count = process_file(args.input, args.output)
+    count = process_file(args.input, args.output, args.chunk_size)
     print(f"{count:,} corridas tratadas em {args.output}")
 
 
