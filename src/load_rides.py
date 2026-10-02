@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import os
 from collections.abc import Iterator
+from io import StringIO
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
-from sqlalchemy import Boolean, Date, Numeric, SmallInteger, URL, create_engine, text
+from sqlalchemy import URL, create_engine
 
 
 PROCESSED_COLUMNS = [
@@ -35,14 +37,6 @@ PROCESSED_COLUMNS = [
     "fare_per_km",
 ]
 DATE_COLUMNS = ["requested_at", "started_at", "finished_at"]
-DATABASE_TYPES = {
-    "ride_date": Date(),
-    "request_hour": SmallInteger(),
-    "is_peak_hour": Boolean(),
-    "fare_per_km": Numeric(10, 2),
-}
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Carrega corridas no PostgreSQL.")
     parser.add_argument(
@@ -111,28 +105,36 @@ def read_processed_chunks(input_path: Path, chunk_size: int) -> Iterator[pd.Data
         yield validate_processed_rides(rides)
 
 
-def append_rides(connection: object, rides: pd.DataFrame) -> None:
-    rides.to_sql(
-        "rides",
-        con=connection,
-        if_exists="append",
-        index=False,
-        method="multi",
-        chunksize=1_000,
-        dtype=DATABASE_TYPES,
-    )
+def rides_to_csv(rides: pd.DataFrame) -> str:
+    buffer = StringIO()
+    rides.to_csv(buffer, index=False, header=False, na_rep="", date_format="%Y-%m-%d %H:%M:%S")
+    return buffer.getvalue()
+
+
+def append_rides(connection: Any, rides: pd.DataFrame) -> None:
+    columns = ", ".join(PROCESSED_COLUMNS)
+    copy_sql = f"COPY rides ({columns}) FROM STDIN WITH (FORMAT CSV, NULL '')"
+    with connection.cursor() as cursor:
+        with cursor.copy(copy_sql) as copy:
+            copy.write(rides_to_csv(rides))
 
 
 def load_rides_chunks(rides_chunks: Iterator[pd.DataFrame]) -> int:
     engine = create_engine(database_url())
+    connection = engine.raw_connection()
     try:
-        with engine.begin() as connection:
-            connection.execute(text("TRUNCATE TABLE rides"))
-            loaded = 0
-            for rides in rides_chunks:
-                append_rides(connection, rides)
-                loaded += len(rides)
+        with connection.cursor() as cursor:
+            cursor.execute("TRUNCATE TABLE rides")
+        loaded = 0
+        for rides in rides_chunks:
+            append_rides(connection, rides)
+            loaded += len(rides)
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     finally:
+        connection.close()
         engine.dispose()
     return loaded
 

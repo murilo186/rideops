@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from generate_rides import generate_rides
-from load_rides import read_and_validate_rides, read_processed_chunks
+from load_rides import read_and_validate_rides, read_processed_chunks, rides_to_csv
 from transform_rides import transform_rides
 
 
@@ -33,3 +33,12 @@ def test_reads_processed_file_in_chunks(tmp_path: Path) -> None:
 
     assert [len(chunk) for chunk in chunks] == [7, 7, 6]
     assert all("fare_per_km" in chunk for chunk in chunks)
+
+
+def test_serializes_processed_rides_for_postgres_copy() -> None:
+    rides = transform_rides(generate_rides(rows=1, seed=42))
+
+    csv_data = rides_to_csv(rides)
+
+    assert "ride_id" not in csv_data.splitlines()[0]
+    assert "RIDE-0000001" in csv_data
