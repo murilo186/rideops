@@ -8,6 +8,8 @@ Pipeline de Data Operations que transforma 3 milhões de corridas sintéticas de
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Google Cloud](https://img.shields.io/badge/Google%20Cloud-IAM%20%2B%20Sheets%20API-4285F4?logo=googlecloud&logoColor=white)
 ![Looker Studio](https://img.shields.io/badge/Looker%20Studio-Dashboard-4285F4)
+![Jev AI](https://img.shields.io/badge/Jev%20AI-Decisão%20operacional-8B5CF6)
+![BeatAPI](https://img.shields.io/badge/BeatAPI-Free%20tier-22C55E)
 
 ## Dashboard
 
@@ -24,19 +26,7 @@ O dashboard acompanha volume de corridas, receita, taxa de cancelamento, desempe
 
 ## Arquitetura
 
-```mermaid
-flowchart LR
-    generator["Gerador Python"] --> raw["CSV bruto"]
-    raw --> transform["Transformação com Pandas"]
-    transform --> processed["CSV tratado"]
-    processed --> database["PostgreSQL"]
-    database --> views["Views SQL"]
-    views --> sync["Sincronização Python"]
-    views --> jev["Jev AI gratuito"]
-    jev --> sync
-    sync --> sheets["Google Sheets"]
-    sheets --> dashboard["Looker Studio"]
-```
+![Arquitetura do pipeline RideOps](docs/images/rideops-architecture.svg)
 
 ## Dados sintéticos
 
@@ -87,7 +77,7 @@ As views SQL organizam os dados para consumo operacional e do dashboard:
 
 ## Sincronização com Google Sheets e Looker Studio
 
-O script de sincronização lê as views do PostgreSQL e atualiza quatro abas da planilha Google: `daily_operations`, `neighborhood_performance`, `cancellation_analysis` e `driver_quality`. O Looker Studio usa essas abas como fonte de dados.
+O script de sincronização lê as views do PostgreSQL e atualiza quatro abas da planilha Google: `daily_operations`, `neighborhood_performance`, `cancellation_analysis` e `driver_quality`. Quando uma decisão operacional foi gerada, ele atualiza também a aba `operational_decision`. O Looker Studio usa essas abas como fonte de dados.
 
 Para habilitar a integração, configure no `.env` o ID da planilha e o caminho do JSON da Service Account. Compartilhe a planilha com o e-mail da Service Account como editor e mantenha o arquivo de credenciais em `secrets/`, diretório ignorado pelo Git.
 
@@ -114,6 +104,25 @@ docker compose run --rm etl python src/generate_operational_decision.py
 docker compose run --rm etl python src/sync_dashboard_sheets.py
 ```
 
+### Onde consultar o resultado
+
+Depois de executar os comandos, a decisão pode ser vista em três lugares:
+
+1. No arquivo local `exports/operational_decision.csv`. Essa pasta é ignorada pelo Git porque contém resultados gerados durante a execução.
+2. Na aba `operational_decision` da planilha Google conectada ao projeto.
+3. No Looker Studio, ao adicionar essa aba como uma nova fonte de dados e inserir uma tabela com os campos abaixo.
+
+| Campo | Significado |
+| --- | --- |
+| `risk_level` | Classificação da operação: `normal`, `atencao`, `critico` ou `manual_review`. |
+| `primary_alert` | Métrica que mais merece acompanhamento. |
+| `requires_human_review` | Indica se uma pessoa deve revisar o cenário. |
+| `risk_confidence` | Confiança do Jev na classificação de risco. |
+| `review_probability` | Probabilidade estimada de precisar de revisão humana. |
+| `decision_status` | `generated` para resposta válida do Jev ou `manual_review` para fallback seguro. |
+
+No Looker Studio, use uma tabela simples para exibir a linha mais recente com `risk_level`, `primary_alert`, `requires_human_review` e `decision_status`. Isso evita tratar uma decisão categórica como métrica numérica.
+
 ## Qualidade e desempenho
 
 - Testes automatizados para gerador, transformação, carga, exportação e sincronização.
@@ -126,6 +135,7 @@ docker compose run --rm etl python src/sync_dashboard_sheets.py
 ```text
 data/          dados brutos e tratados, ignorados pelo Git
 docs/images/   imagem do dashboard
+exports/       decisões e exportações locais, ignoradas pelo Git
 sql/init/      criação e evolução da tabela principal
 sql/views/     views analíticas
 src/           scripts do pipeline
