@@ -1,11 +1,5 @@
 # RideOps — Prioridades do Projeto
 
-Este arquivo preserva os critérios de conclusão e priorização definidos antes da implementação. Toda nova funcionalidade deve ser avaliada pela pergunta:
-
-> Isso ajuda um recrutador de Data Operations a perceber rapidamente que sei trabalhar com dados, Python, SQL, automação, BI e IA?
-
-Se a resposta for não, a funcionalidade não pertence ao MVP.
-
 ## Prioridades para o MVP
 
 O projeto estará pronto para entrar no currículo quando possuir:
