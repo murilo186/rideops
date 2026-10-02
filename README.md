@@ -26,14 +26,14 @@ O dashboard acompanha volume de corridas, receita, taxa de cancelamento, desempe
 
 ```mermaid
 flowchart LR
-    A[Gerador Python] --> B[CSV bruto]
-    B --> C[Transformação com Pandas em lotes]
-    C --> D[CSV tratado]
-    D --> E[(PostgreSQL)]
-    E --> F[Views SQL]
-    F --> G[Sincronização Python]
-    G -->|Google Sheets API e Service Account| H[Google Sheets]
-    H --> I[Looker Studio]
+    generator["Gerador Python"] --> raw["CSV bruto"]
+    raw --> transform["Transformação com Pandas"]
+    transform --> processed["CSV tratado"]
+    processed --> database["PostgreSQL"]
+    database --> views["Views SQL"]
+    views --> sync["Sincronização Python"]
+    sync --> sheets["Google Sheets"]
+    sheets --> dashboard["Looker Studio"]
 ```
 
 ## Dados sintéticos
