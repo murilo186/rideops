@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from generate_rides import CITY, entity_pool_size, generate_rides, generate_rides_chunks, write_rides
+from generate_rides import CITY, DEFAULT_ROWS, build_parser, entity_pool_size, generate_rides, generate_rides_chunks, write_rides
 
 
 def test_generates_requested_number_of_rides() -> None:
@@ -51,3 +51,7 @@ def test_writes_rides_in_chunks(tmp_path: Path) -> None:
 
 def test_caps_entity_pools_for_large_generation() -> None:
     assert entity_pool_size(rows=3_000_000, ratio=10, maximum=20_000) == 20_000
+
+
+def test_uses_three_million_rows_by_default() -> None:
+    assert build_parser().parse_args([]).rows == DEFAULT_ROWS

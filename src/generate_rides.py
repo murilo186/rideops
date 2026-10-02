@@ -10,6 +10,7 @@ import pandas as pd
 
 
 CITY = "São Paulo"
+DEFAULT_ROWS = 3_000_000
 NEIGHBORHOODS = (
     "Bela Vista",
     "Brás",
@@ -101,7 +102,7 @@ MAX_DRIVERS = 20_000
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Gera dados sintéticos de corridas em São Paulo.")
-    parser.add_argument("--rows", type=int, default=100_000, help="Quantidade de corridas a gerar.")
+    parser.add_argument("--rows", type=int, default=DEFAULT_ROWS, help="Quantidade de corridas a gerar.")
     parser.add_argument(
         "--output",
         type=Path,
