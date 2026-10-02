@@ -15,6 +15,38 @@ EXPORT_FILES = {
     "vw_cancellation_analysis": "cancellation_analysis.csv",
     "vw_driver_quality": "driver_quality.csv",
 }
+DASHBOARD_QUERIES = {
+    "vw_daily_operations": "SELECT * FROM vw_daily_operations ORDER BY ride_date",
+    "vw_neighborhood_performance": """
+        SELECT *
+        FROM vw_neighborhood_performance
+        ORDER BY ride_date, neighborhood_role, neighborhood
+    """,
+    "vw_cancellation_analysis": """
+        WITH daily_demand AS (
+            SELECT ride_date, COUNT(*) AS total_requests
+            FROM rides
+            GROUP BY ride_date
+        )
+        SELECT
+            rides.ride_date,
+            rides.cancellation_reason,
+            COUNT(*) AS cancellation_count,
+            daily_demand.total_requests,
+            ROUND(100.0 * COUNT(*) / daily_demand.total_requests, 2) AS cancellation_rate_pct
+        FROM rides
+        JOIN daily_demand USING (ride_date)
+        WHERE rides.status IN ('cancelada_passageiro', 'cancelada_motorista')
+        GROUP BY rides.ride_date, rides.cancellation_reason, daily_demand.total_requests
+        ORDER BY rides.ride_date, rides.cancellation_reason
+    """,
+    "vw_driver_quality": """
+        SELECT *
+        FROM vw_driver_quality
+        ORDER BY completed_rides DESC, avg_driver_rating DESC
+        LIMIT 100
+    """,
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,8 +77,8 @@ def read_dashboard_views() -> dict[str, pd.DataFrame]:
     try:
         with engine.connect() as connection:
             return {
-                view_name: pd.read_sql_query(text(f"SELECT * FROM {view_name}"), connection)
-                for view_name in EXPORT_FILES
+                view_name: pd.read_sql_query(text(query), connection)
+                for view_name, query in DASHBOARD_QUERIES.items()
             }
     finally:
         engine.dispose()

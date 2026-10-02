@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from export_dashboard_data import write_exports
+from export_dashboard_data import DASHBOARD_QUERIES, EXPORT_FILES, write_exports
 
 
 def test_writes_one_file_for_each_dashboard_view(tmp_path: Path) -> None:
@@ -18,3 +18,9 @@ def test_writes_one_file_for_each_dashboard_view(tmp_path: Path) -> None:
     assert len(exported) == 4
     assert all(path.exists() for path in exported)
     assert set(exported.values()) == {1}
+
+
+def test_uses_compact_queries_for_dashboard_exports() -> None:
+    assert set(DASHBOARD_QUERIES) == set(EXPORT_FILES)
+    assert "LIMIT 100" in DASHBOARD_QUERIES["vw_driver_quality"]
+    assert "GROUP BY rides.ride_date, rides.cancellation_reason" in DASHBOARD_QUERIES["vw_cancellation_analysis"]
