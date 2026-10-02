@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+import argparse
+import os
+from pathlib import Path
+
+import pandas as pd
+from sqlalchemy import URL, create_engine, text
+
+
+INPUT_COLUMNS = [
+    "ride_id",
+    "requested_at",
+    "city",
+    "origin_neighborhood",
+    "destination_neighborhood",
+    "passenger_id",
+    "driver_id",
+    "category",
+    "status",
+    "wait_minutes",
+    "payment_method",
+    "cancellation_reason",
+    "started_at",
+    "finished_at",
+    "distance_km",
+    "duration_minutes",
+    "fare_brl",
+    "driver_rating",
+]
+DATE_COLUMNS = ["requested_at", "started_at", "finished_at"]
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Carrega corridas no PostgreSQL.")
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=Path("data/raw/rides.csv"),
+        help="Caminho do CSV gerado pelo script de dados sintéticos.",
+    )
+    return parser
+
+
+def database_url() -> URL:
+    return URL.create(
+        "postgresql+psycopg",
+        username=os.environ.get("POSTGRES_USER", "rideops"),
+        password=os.environ.get("POSTGRES_PASSWORD"),
+        host=os.environ.get("DB_HOST", "postgres"),
+        port=int(os.environ.get("DB_PORT", "5432")),
+        database=os.environ.get("POSTGRES_DB", "rideops"),
+    )
+
+
+def read_and_validate_rides(input_path: Path) -> pd.DataFrame:
+    if not input_path.exists():
+        raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+
+    rides = pd.read_csv(input_path, parse_dates=DATE_COLUMNS)
+    if list(rides.columns) != INPUT_COLUMNS:
+        raise ValueError("As colunas do CSV não correspondem à estrutura esperada.")
+    if rides.empty:
+        raise ValueError("O CSV não possui corridas para carregar.")
+    if not rides["ride_id"].is_unique:
+        raise ValueError("O CSV possui ride_id duplicado.")
+
+    completed = rides["status"].eq("concluída")
+    if rides.loc[completed, ["started_at", "finished_at", "fare_brl"]].isna().any().any():
+        raise ValueError("Há corrida concluída sem horários ou valor.")
+    if rides.loc[~completed, "cancellation_reason"].isna().any():
+        raise ValueError("Há corrida cancelada sem motivo de cancelamento.")
+
+    return rides.where(pd.notna(rides), None)
+
+
+def load_rides(rides: pd.DataFrame) -> int:
+    engine = create_engine(database_url())
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE TABLE rides"))
+            rides.to_sql(
+                "rides",
+                con=connection,
+                if_exists="append",
+                index=False,
+                method="multi",
+                chunksize=1_000,
+            )
+    finally:
+        engine.dispose()
+    return len(rides)
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    rides = read_and_validate_rides(args.input)
+    count = load_rides(rides)
+    print(f"{count:,} corridas carregadas na tabela rides.")
+
+
+if __name__ == "__main__":
+    main()
