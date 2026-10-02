@@ -7,6 +7,8 @@ __pycache__/
 data/raw/
 data/processed/
 exports/
+ANGENTS.md
+
 
 .DS_Store
 .vscode/
