@@ -40,17 +40,20 @@ def write_exports(dataframes: dict[str, pd.DataFrame], output_dir: Path) -> dict
     return exported
 
 
-def export_dashboard_data(output_dir: Path) -> dict[Path, int]:
+def read_dashboard_views() -> dict[str, pd.DataFrame]:
     engine = create_engine(database_url())
     try:
         with engine.connect() as connection:
-            dataframes = {
+            return {
                 view_name: pd.read_sql_query(text(f"SELECT * FROM {view_name}"), connection)
                 for view_name in EXPORT_FILES
             }
     finally:
         engine.dispose()
 
+
+def export_dashboard_data(output_dir: Path) -> dict[Path, int]:
+    dataframes = read_dashboard_views()
     return write_exports(dataframes, output_dir)
 
 
