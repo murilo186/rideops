@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from export_dashboard_data import EXPORT_FILES, read_dashboard_views
+from generate_operational_decision import DECISION_COLUMNS
 
 
 if TYPE_CHECKING:
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
 
 SCOPES = ("https://www.googleapis.com/auth/spreadsheets",)
+OPERATIONAL_DECISION_FILE = Path("exports/operational_decision.csv")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,13 +57,20 @@ def worksheet_name(filename: str) -> str:
     return Path(filename).stem
 
 
+def files_to_sync(dataframes: dict[str, pd.DataFrame]) -> dict[str, str]:
+    files = EXPORT_FILES.copy()
+    if "operational_decision" in dataframes:
+        files["operational_decision"] = OPERATIONAL_DECISION_FILE.name
+    return files
+
+
 def sync_dataframes(
     spreadsheet: "gspread.Spreadsheet", dataframes: dict[str, pd.DataFrame]
 ) -> dict[str, int]:
     import gspread
 
     synchronized: dict[str, int] = {}
-    for view_name, filename in EXPORT_FILES.items():
+    for view_name, filename in files_to_sync(dataframes).items():
         values = dataframe_to_values(dataframes[view_name])
         name = worksheet_name(filename)
         try:
@@ -81,7 +90,18 @@ def sync_dataframes(
     return synchronized
 
 
-def sync_dashboard_sheets(credentials_file: Path, spreadsheet_id: str) -> dict[str, int]:
+def read_operational_decision(input_path: Path = OPERATIONAL_DECISION_FILE) -> pd.DataFrame | None:
+    if not input_path.is_file():
+        return None
+    decision = pd.read_csv(input_path)
+    if decision.columns.tolist() != DECISION_COLUMNS:
+        raise ValueError("O arquivo de decisão operacional possui colunas inválidas.")
+    return decision
+
+
+def sync_dashboard_sheets(
+    credentials_file: Path, spreadsheet_id: str, decision_path: Path = OPERATIONAL_DECISION_FILE
+) -> dict[str, int]:
     import gspread
     from google.oauth2.service_account import Credentials
 
@@ -93,7 +113,11 @@ def sync_dashboard_sheets(credentials_file: Path, spreadsheet_id: str) -> dict[s
     credentials = Credentials.from_service_account_file(credentials_file, scopes=SCOPES)
     client = gspread.authorize(credentials)
     spreadsheet = client.open_by_key(spreadsheet_id)
-    return sync_dataframes(spreadsheet, read_dashboard_views())
+    dataframes = read_dashboard_views()
+    decision = read_operational_decision(decision_path)
+    if decision is not None:
+        dataframes["operational_decision"] = decision
+    return sync_dataframes(spreadsheet, dataframes)
 
 
 def main() -> None:

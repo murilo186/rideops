@@ -32,6 +32,8 @@ flowchart LR
     processed --> database["PostgreSQL"]
     database --> views["Views SQL"]
     views --> sync["Sincronização Python"]
+    views --> jev["Jev AI gratuito"]
+    jev --> sync
     sync --> sheets["Google Sheets"]
     sheets --> dashboard["Looker Studio"]
 ```
@@ -97,6 +99,19 @@ Também é possível exportar os dados localmente em CSV:
 
 ```bash
 docker compose run --rm etl python src/export_dashboard_data.py
+```
+
+## Decisão operacional com Jev AI
+
+O projeto usa o modelo gratuito `jev-1.13-free`, via BeatAPI, para classificar o risco da operação mais recente como `normal`, `atencao` ou `critico`. O modelo recebe somente métricas agregadas do dia e a comparação com a média dos sete dias anteriores. Ele também aponta o alerta prioritário e a necessidade de revisão humana.
+
+Em caso de falha, resposta inválida ou ausência de chave, o pipeline gera `manual_review`; nenhuma ação é tomada automaticamente. A decisão é salva em `exports/operational_decision.csv` e, na sincronização seguinte, enviada para a aba `operational_decision` da planilha Google.
+
+Configure `BEATAPI_API_KEY` no `.env` e execute:
+
+```bash
+docker compose run --rm etl python src/generate_operational_decision.py
+docker compose run --rm etl python src/sync_dashboard_sheets.py
 ```
 
 ## Qualidade e desempenho
