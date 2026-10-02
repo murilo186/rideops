@@ -14,3 +14,5 @@ exports/
 # Sistema e editor
 .DS_Store
 .vscode/
+.env
+data/raw/*.csv
