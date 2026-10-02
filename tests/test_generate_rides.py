@@ -1,10 +1,6 @@
-from pathlib import Path
-import sys
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from generate_rides import CITY, generate_rides  # noqa: E402
+from generate_rides import CITY, generate_rides
 
 
 def test_generates_requested_number_of_rides() -> None:

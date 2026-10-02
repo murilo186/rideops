@@ -1,5 +1,3 @@
-"""Gera corridas sintéticas de São Paulo para o projeto RideOps."""
-
 from __future__ import annotations
 
 import argparse
@@ -8,7 +6,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
-from faker import Faker
 
 
 CITY = "São Paulo"
@@ -58,7 +55,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def choose_request_time(rng: random.Random) -> datetime:
-    """Prioriza manhã e fim de tarde, horários mais movimentados."""
     start = datetime(2025, 1, 1)
     day = start + timedelta(days=rng.randrange(365))
     hour = rng.choices(
@@ -70,13 +66,10 @@ def choose_request_time(rng: random.Random) -> datetime:
 
 
 def generate_rides(rows: int, seed: int = 42) -> pd.DataFrame:
-    """Retorna um conjunto reprodutível de corridas sintéticas de São Paulo."""
     if rows <= 0:
         raise ValueError("A quantidade de corridas deve ser maior que zero.")
 
     rng = random.Random(seed)
-    fake = Faker("pt_BR")
-    Faker.seed(seed)
     records: list[dict[str, object]] = []
 
     for number in range(1, rows + 1):
