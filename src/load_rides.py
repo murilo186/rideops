@@ -37,6 +37,7 @@ PROCESSED_COLUMNS = [
     "fare_per_km",
 ]
 DATE_COLUMNS = ["requested_at", "started_at", "finished_at"]
+INTEGER_COLUMNS = ("wait_minutes", "duration_minutes", "request_hour")
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Carrega corridas no PostgreSQL.")
     parser.add_argument(
@@ -107,7 +108,10 @@ def read_processed_chunks(input_path: Path, chunk_size: int) -> Iterator[pd.Data
 
 def rides_to_csv(rides: pd.DataFrame) -> str:
     buffer = StringIO()
-    rides.to_csv(buffer, index=False, header=False, na_rep="", date_format="%Y-%m-%d %H:%M:%S")
+    copyable = rides.copy()
+    for column in INTEGER_COLUMNS:
+        copyable[column] = copyable[column].astype("Int64")
+    copyable.to_csv(buffer, index=False, header=False, na_rep="", date_format="%Y-%m-%d %H:%M:%S")
     return buffer.getvalue()
 
 

@@ -36,9 +36,11 @@ def test_reads_processed_file_in_chunks(tmp_path: Path) -> None:
 
 
 def test_serializes_processed_rides_for_postgres_copy() -> None:
-    rides = transform_rides(generate_rides(rows=1, seed=42))
+    rides = transform_rides(generate_rides(rows=20, seed=42))
 
     csv_data = rides_to_csv(rides)
+    completed_duration = int(rides.loc[rides["status"].eq("concluída"), "duration_minutes"].iloc[0])
 
     assert "ride_id" not in csv_data.splitlines()[0]
     assert "RIDE-0000001" in csv_data
+    assert f"{completed_duration}.0" not in csv_data
